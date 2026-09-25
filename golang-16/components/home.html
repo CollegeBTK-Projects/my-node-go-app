@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Лабораторная работа 16</title>
+</head>
+<body>
+    <h1>Лабораторная работа 16</h1>
+    <div class="info">
+        <p><b>Группа:</b> 478 </p>
+        <p><b>Текущая дата и время:</b> {{.Date}}</p>
+    </div>
+    <p>Привет. Это сервер на Go</p>
+    <h2>Доступные маршруты:</h2>
+    <ul>
+        <li><a href="/">/</a> — главная страница</li>
+        <li><a href="/about">/about</a> — информация о разработчике</li>
+        <li><a href="/contacts">/contacts</a> — контакты</li>
+        <li>/api/books — список книг (GET), добавление (POST)</li>
+        <li>/api/books/{id} — книга по ID (GET), обновление (PUT), удаление (DELETE)</li>
+        <li>/api/books/search?author=Толстой — поиск по автору</li>
+        <li>/error и /async-error — тест обработчика ошибок</li>
+    </ul>
+</body>
+</html>
