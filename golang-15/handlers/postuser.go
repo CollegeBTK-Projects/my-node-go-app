@@ -14,6 +14,7 @@ func GetLastID() (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer file.Close()
 
 	var u []models.User
 	js := json.NewDecoder(file)
