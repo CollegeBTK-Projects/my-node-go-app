@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -12,12 +13,19 @@ func GreatMsg(name string) {
 }
 
 func main() {
-	name := flag.String("great", "", "вывод приветствия")
-	info := flag.Bool("info", false, "информация о группе")
-	flag.Parse()
+	myflag := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	name := myflag.String("great", "", "вывод приветствия")
+	info := myflag.Bool("info", false, "информация о группе")
+
+	if err := myflag.Parse(os.Args[1:]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return
+		}
+		os.Exit(1)
+	}
 
 	if len(os.Args) == 1 && *name == "" {
-		flag.PrintDefaults()
+		myflag.PrintDefaults()
 		return
 	}
 
