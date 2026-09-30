@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"slices"
+	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -34,8 +38,10 @@ func newConvertCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("Ошибка: входной файл %q не найден", input)
 			}
+			dot := strings.LastIndex(input, ".")
+
 			if output == "" {
-				output = input + "." + format
+				output = input[:dot] + "." + format
 			}
 
 			if dryRun {
@@ -65,6 +71,129 @@ func newConvertCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "перезаписать существующий файл")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "показать что будет сделано без выполнения")
 	_ = cmd.MarkFlagRequired("input")
+	return cmd
+}
+
+func newInteractiveCmd() *cobra.Command {
+	var n, t, l string
+	var git bool
+	var noInteractive bool
+
+	answers := struct {
+		Project  string
+		Type     string
+		Language string
+		Git      bool
+	}{}
+
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "вызвать меню",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			nameSet := cmd.Flags().Changed("name")
+			typeSet := cmd.Flags().Changed("type")
+
+			info, err := os.Stdin.Stat()
+			if err != nil {
+				return err
+			}
+
+			isPipe := info.Mode()&os.ModeCharDevice == 0
+
+			if isPipe {
+				scanner := bufio.NewScanner(os.Stdin)
+				if scanner.Scan() {
+					answers.Project = scanner.Text()
+				}
+				if err := scanner.Err(); err != nil {
+					return err
+				}
+			}
+
+			qs := []*survey.Question{
+				{
+					Name: "Project",
+					Prompt: &survey.Input{
+						Message: "Название проекта: ",
+					},
+				},
+				{
+					Name: "Type",
+					Prompt: &survey.Select{
+						Message: "Выбери тип проекта: ",
+						Options: []string{"Микросервис", "CLI-утилита", "Монолит"},
+						Default: "Микросервис",
+					},
+				},
+				{
+					Name: "Language",
+					Prompt: &survey.Select{
+						Message: "Выберите язык проекта: ",
+						Options: []string{"Go", "Rust", "Python"},
+						Default: "Go",
+					},
+				},
+				{
+					Name: "Git",
+					Prompt: &survey.Confirm{
+						Message: "Использовать Git?",
+						Default: false,
+					},
+				},
+			}
+
+			if !noInteractive && !isPipe && !nameSet && !typeSet {
+				if err := survey.Ask(qs, &answers); err != nil {
+					return fmt.Errorf("ошибка в вопросах: %w", err)
+				}
+			} else {
+				if answers.Project == "" {
+					answers.Project = n
+				}
+				answers.Type = t
+				answers.Language = l
+				answers.Git = git
+			}
+
+			if answers.Project == "" {
+				return fmt.Errorf("недостаточно данных. Укажите --name")
+			}
+
+			if answers.Type == "" {
+				return fmt.Errorf("недостаточно данных. Укажите --type")
+			}
+
+			if err := os.Mkdir(answers.Project, 0o755); err != nil {
+				return fmt.Errorf("ошибка в создании проекта: %w", err)
+			}
+
+			if err := os.Chdir(answers.Project); err != nil {
+				return fmt.Errorf("ошибка при переходе в директорию: %w", err)
+			}
+
+			if answers.Git {
+				gt := exec.Command("git", "init")
+				gt.Stdout = os.Stdout
+				gt.Stderr = os.Stderr
+
+				if err := gt.Run(); err != nil {
+					return fmt.Errorf("ошибка в init git: %w", err)
+				}
+			}
+
+			fmt.Printf("создан проект: %s\nтип проекта: %s\nязык проекта: %s\ngit: %t\n", answers.Project, answers.Type, answers.Language, answers.Git)
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&t, "type", "t", "", "тип проекта")
+	cmd.Flags().StringVarP(&l, "lang", "l", "Go", "язык проекта")
+	cmd.Flags().StringVarP(&n, "name", "n", "", "название проекта")
+	cmd.Flags().BoolVarP(&git, "git", "g", false, "git в проект")
+	cmd.Flags().BoolVar(&noInteractive, "no-interactive", false, "отключить интерактивный режим")
+
 	return cmd
 }
 
@@ -125,7 +254,7 @@ func main() {
 
 	root.Flags().BoolP("version", "V", false, "версия программы")
 	root.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "подробный вывод")
-	root.AddCommand(newGenerateCmd(), newConvertCmd(), newGreetCmd(), newInfoCmd())
+	root.AddCommand(newGenerateCmd(), newConvertCmd(), newGreetCmd(), newInfoCmd(), newInteractiveCmd())
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
