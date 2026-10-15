@@ -16,6 +16,7 @@ import (
 
 const group = "478"
 
+// Пересоздал
 func resources() {
 	cores, _ := cpu.Counts(true)
 	infos, _ := cpu.Info()
