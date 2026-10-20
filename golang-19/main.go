@@ -101,7 +101,7 @@ func (db *DatabaseConnection) On(event string, l Listener) {
 
 func (db *DatabaseConnection) connect() {
 	db.connected = true
-	db.emitter.Emit("connect", "Группа ББМО-01-23: подключение успешно")
+	db.emitter.Emit("connect", "Группа 478: подключение успешно")
 }
 
 func (db *DatabaseConnection) query(sql string) {
