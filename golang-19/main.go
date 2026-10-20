@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type Listener func(args ...any)
 
@@ -17,6 +20,17 @@ type EventEmitter struct {
 
 func NewEventEmitter() *EventEmitter {
 	return &EventEmitter{listeners: make(map[string][]entry)}
+}
+
+type DatabaseConnection struct {
+	emitter   *EventEmitter
+	connected bool
+}
+
+func NewDatabaseConnection() *DatabaseConnection {
+	return &DatabaseConnection{
+		emitter: NewEventEmitter(),
+	}
 }
 
 func (e *EventEmitter) add(event string, l Listener, once bool) int {
@@ -81,6 +95,35 @@ func (e *EventEmitter) RemoveAllListeners(event string) {
 	delete(e.listeners, event)
 }
 
+func (db *DatabaseConnection) On(event string, l Listener) {
+	db.emitter.On(event, l)
+}
+
+func (db *DatabaseConnection) connect() {
+	db.connected = true
+	db.emitter.Emit("connect", "Группа ББМО-01-23: подключение успешно")
+}
+
+func (db *DatabaseConnection) query(sql string) {
+	if !db.connected {
+		db.error("Нет подключения к базе данных")
+		return
+	}
+
+	result := "Запрос выполнен успешно"
+
+	db.emitter.Emit("query", sql, result)
+}
+
+func (db *DatabaseConnection) close() {
+	db.connected = false
+	db.emitter.Emit("close", "Соединение закрыто")
+}
+
+func (db *DatabaseConnection) error(message string) {
+	db.emitter.Emit("error", errors.New(message))
+}
+
 func main() {
 	emitter := NewEventEmitter()
 
@@ -124,4 +167,24 @@ func main() {
 	emitter.On("order", func(args ...any) { fmt.Println("второй слушатель") })
 	emitter.On("order", func(args ...any) { fmt.Println("Группа: 478") })
 	emitter.Emit("order")
+
+	db := NewDatabaseConnection()
+	db.On("connect", func(args ...any) {
+		fmt.Println("CONNECT:", args[0])
+	})
+	db.On("query", func(args ...any) {
+		fmt.Println("QUERY:", args[0])
+		fmt.Println("RESULT:", args[1])
+	})
+	db.On("close", func(args ...any) {
+		fmt.Println("CLOSE:", args[0])
+	})
+	db.On("error", func(args ...any) {
+		fmt.Println("ERROR:", args[0])
+	})
+	fmt.Println("Группа 478")
+	db.connect()
+	db.query("SELECT * FROM users")
+	db.close()
+	db.query("SELECT * FROM users")
 }
